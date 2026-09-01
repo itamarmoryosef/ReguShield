@@ -1,6 +1,31 @@
 import { AppError } from "@/lib/errors";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { dueDocumentSchema, reminderJobRowSchema, uuidSchema } from "@/lib/validation/schemas";
+import type { z } from "zod";
+
+type DueDocument = z.infer<typeof dueDocumentSchema>;
+
+/** Documents that already have a reminder waiting or in flight. */
+async function openJobDocumentIds(
+  admin: ReturnType<typeof createServiceClient>,
+  documentIds: string[],
+): Promise<Set<string>> {
+  const { data, error } = await admin
+    .from("reminder_jobs")
+    .select("document_id")
+    .in("status", ["pending", "processing"])
+    .in("document_id", documentIds);
+
+  if (error) {
+    throw new AppError("בדיקת תזכורות קיימות נכשלה", { code: "ENQUEUE_DEDUPE_FAILED", status: 500 });
+  }
+
+  return new Set((data ?? []).map((row) => row.document_id).filter((id): id is string => Boolean(id)));
+}
+
+const PAGE_SIZE = 500;
+/** Bounds a single run so a runaway query cannot exhaust the function timeout. */
+const MAX_PAGES = 20;
 
 export async function enqueueDueReminders(lookAheadDays: number): Promise<{ created: number; job_ids: string[] }> {
   const admin = createServiceClient();
@@ -8,24 +33,44 @@ export async function enqueueDueReminders(lookAheadDays: number): Promise<{ crea
   horizon.setDate(horizon.getDate() + lookAheadDays);
   const horizonIso = horizon.toISOString().slice(0, 10);
 
-  const { data, error } = await admin
-    .from("client_documents")
-    .select("id, business_id, template_id, expiry_date, status")
-    .in("status", ["expired", "expiring_soon"])
-    .lte("expiry_date", horizonIso)
-    .limit(200);
+  // Paged rather than capped: a fixed limit would silently drop the reminders of
+  // every tenant beyond it once the portfolio grows.
+  const due: DueDocument[] = [];
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const from = page * PAGE_SIZE;
+    const { data, error } = await admin
+      .from("client_documents")
+      .select("id, business_id, template_id, expiry_date, status")
+      .in("status", ["expired", "expiring_soon"])
+      .lte("expiry_date", horizonIso)
+      .order("expiry_date", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
 
-  if (error) {
-    throw new AppError("שליפת מסמכים לחידוש נכשלה", { code: "ENQUEUE_QUERY_FAILED", status: 500 });
+    if (error) {
+      throw new AppError("שליפת מסמכים לחידוש נכשלה", { code: "ENQUEUE_QUERY_FAILED", status: 500 });
+    }
+
+    const parsed = dueDocumentSchema.array().safeParse(data ?? []);
+    if (parsed.success) due.push(...parsed.data);
+    if ((data?.length ?? 0) < PAGE_SIZE) break;
   }
 
-  const dueParsed = dueDocumentSchema.array().safeParse(data ?? []);
-  const due = dueParsed.success ? dueParsed.data : [];
   if (due.length === 0) {
     return { created: 0, job_ids: [] };
   }
 
-  const rows = due.map((doc) => ({
+  const pending = await openJobDocumentIds(
+    admin,
+    due.map((doc) => doc.id),
+  );
+  // The cron runs daily while a document stays expired for weeks, so without this
+  // the same reminder would pile up once per day.
+  const fresh = due.filter((doc) => !pending.has(doc.id));
+  if (fresh.length === 0) {
+    return { created: 0, job_ids: [] };
+  }
+
+  const rows = fresh.map((doc) => ({
     business_id: doc.business_id,
     template_id: doc.template_id,
     document_id: doc.id,

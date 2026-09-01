@@ -16,6 +16,12 @@ import {
   resolvePoliceRequirement,
 } from "@/lib/police";
 
+/**
+ * Server actions run in this segment, and the document scanner waits on GPT-4o
+ * Vision, which regularly takes half a minute on a photographed certificate.
+ */
+export const maxDuration = 120;
+
 export default async function BusinessPage() {
   const demo = isDemoMode();
   const [profile, business] = await Promise.all([getCurrentProfile(), getCurrentBusiness()]);
