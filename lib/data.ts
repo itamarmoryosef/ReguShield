@@ -29,6 +29,12 @@ export async function getCurrentProfile(): Promise<Profile | null> {
       role: "business",
       partner_id: null,
       full_name: "בעל העסק (הדגמה)",
+      // Demo mode opens the admin screen so the layout can be reviewed without
+      // a real account.
+      is_admin: true,
+      brand_name: "רגולשילד ייעוץ ורישוי",
+      brand_logo_url: null,
+      custom_reminder_text: "",
     };
   }
 
@@ -40,7 +46,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 
   const { data } = await supabase
     .from("profiles")
-    .select("id, role, partner_id, full_name, created_at")
+    .select("id, role, partner_id, full_name, is_admin, brand_name, brand_logo_url, custom_reminder_text, created_at")
     .eq("id", user.id)
     .maybeSingle();
 

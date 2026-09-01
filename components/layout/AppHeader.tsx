@@ -1,4 +1,4 @@
-import { LogOut, ShieldCheck } from "lucide-react";
+import { LogOut, ShieldCheck, Wrench } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "@/app/actions/auth";
 
@@ -6,9 +6,11 @@ type AppHeaderProps = {
   title: string;
   subtitle?: string;
   demo?: boolean;
+  /** Reveals the platform admin entry point. The page itself re-checks. */
+  isAdmin?: boolean;
 };
 
-export function AppHeader({ title, subtitle, demo }: AppHeaderProps) {
+export function AppHeader({ title, subtitle, demo, isAdmin }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
@@ -34,6 +36,15 @@ export function AppHeader({ title, subtitle, demo }: AppHeaderProps) {
             <span className="hidden max-w-[200px] truncate text-xs text-gray-500 sm:block">
               {subtitle}
             </span>
+          ) : null}
+          {isAdmin ? (
+            <Link
+              href="/admin"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+            >
+              <Wrench className="h-3.5 w-3.5" />
+              ניהול מערכת
+            </Link>
           ) : null}
           <form action={signOut}>
             <button

@@ -21,7 +21,7 @@ export default async function BusinessProfilePage() {
 
   return (
     <>
-      <AppHeader title="פרטי העסק" subtitle={business.name} demo={demo} />
+      <AppHeader title="פרטי העסק" subtitle={business.name} demo={demo} isAdmin={profile?.is_admin} />
       <div className="mx-auto max-w-3xl px-4 py-8 pb-20 sm:px-6">
         <BusinessTabs />
 

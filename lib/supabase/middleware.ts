@@ -33,7 +33,12 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/signup");
-  const isDashboard = pathname.startsWith("/business") || pathname.startsWith("/partner");
+  // /admin only needs a session here; the page itself checks is_admin, which
+  // keeps a database read off every request that passes through middleware.
+  const isDashboard =
+    pathname.startsWith("/business") ||
+    pathname.startsWith("/partner") ||
+    pathname.startsWith("/admin");
 
   if (!user && isDashboard) {
     const redirectUrl = request.nextUrl.clone();

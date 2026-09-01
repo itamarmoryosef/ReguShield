@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BusinessPortfolioTable } from "@/components/partner/BusinessPortfolioTable";
 import { InviteBusinessButton } from "@/components/partner/InviteBusinessButton";
+import { PartnerTabs } from "@/components/partner/PartnerTabs";
 import { getCurrentPartner, getCurrentProfile, getPartnerPortfolio } from "@/lib/data";
 import { isDemoMode } from "@/lib/env";
 
@@ -31,26 +32,34 @@ export default async function PartnerPage() {
 
   return (
     <>
-      <AppHeader title="לוח בקרה לשותף" subtitle={partner.name} demo={demo} />
-      <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 pb-20 sm:px-6 lg:px-8">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{partner.name}</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              מבט מהיר על כל בתי העסק תחת המשרד — מה בתוקף ומה דורש טיפול.
-            </p>
-          </div>
-          <InviteBusinessButton />
-        </header>
+      <AppHeader
+        title="לוח בקרה לשותף"
+        subtitle={partner.name}
+        demo={demo}
+        isAdmin={profile?.is_admin}
+      />
+      <div className="mx-auto max-w-7xl px-4 py-8 pb-20 sm:px-6 lg:px-8">
+        <PartnerTabs />
+        <div className="space-y-8">
+          <header className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{partner.name}</h1>
+              <p className="mt-1 text-sm text-gray-500">
+                מבט מהיר על כל בתי העסק תחת המשרד — מה בתוקף ומה דורש טיפול.
+              </p>
+            </div>
+            <InviteBusinessButton />
+          </header>
 
-        <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <SummaryTile label="בתי עסק" value={businesses.length} dotClassName="bg-brand-500" />
-          <SummaryTile label="פגי תוקף" value={totals.expired} dotClassName="bg-red-500" />
-          <SummaryTile label="חסרים" value={totals.missing} dotClassName="bg-red-500" />
-          <SummaryTile label="בתוקף" value={totals.valid} dotClassName="bg-emerald-500" />
-        </section>
+          <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <SummaryTile label="בתי עסק" value={businesses.length} dotClassName="bg-brand-500" />
+            <SummaryTile label="פגי תוקף" value={totals.expired} dotClassName="bg-red-500" />
+            <SummaryTile label="חסרים" value={totals.missing} dotClassName="bg-red-500" />
+            <SummaryTile label="בתוקף" value={totals.valid} dotClassName="bg-emerald-500" />
+          </section>
 
-        <BusinessPortfolioTable businesses={businesses} />
+          <BusinessPortfolioTable businesses={businesses} />
+        </div>
       </div>
     </>
   );

@@ -1,5 +1,7 @@
 import { computeDocumentStatus } from "./status";
 import type {
+  AdminBusinessRow,
+  AdminUserRow,
   BusinessComplianceSummary,
   ClientDocument,
   DashboardDocument,
@@ -131,3 +133,44 @@ export const DEMO_PORTFOLIO: BusinessComplianceSummary[] = [
     valid_count: 10,
   },
 ];
+
+export const DEMO_ADMIN_USERS: AdminUserRow[] = [
+  {
+    id: "00000000-0000-4000-8000-000000000001",
+    email: "owner@demo-restaurant.co.il",
+    role: "business",
+    full_name: "ישראל ישראלי",
+    is_admin: true,
+    partner_name: null,
+    created_at: "2025-11-04T09:12:00.000Z",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000002",
+    email: "office@regushield-consulting.co.il",
+    role: "partner",
+    full_name: "נועה כהן",
+    is_admin: false,
+    partner_name: "רגולשילד ייעוץ ורישוי",
+    created_at: "2025-09-21T14:03:00.000Z",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000003",
+    email: "info@pita-melech.co.il",
+    role: "business",
+    full_name: "אבי מזרחי",
+    is_admin: false,
+    partner_name: "רגולשילד ייעוץ ורישוי",
+    created_at: "2025-01-18T08:40:00.000Z",
+  },
+];
+
+export const DEMO_ADMIN_BUSINESSES: AdminBusinessRow[] = DEMO_PORTFOLIO.map((row, index) => ({
+  id: row.business_id,
+  name: row.name,
+  hp_number: row.hp_number,
+  address: row.address,
+  owner_name: ["ישראל ישראלי", "נועה כהן", "אבי מזרחי", "דנה לוי"][index] ?? null,
+  owner_email: DEMO_ADMIN_USERS[index % DEMO_ADMIN_USERS.length].email,
+  partner_name: "רגולשילד ייעוץ ורישוי",
+  created_at: row.created_at,
+}));

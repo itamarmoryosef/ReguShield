@@ -276,7 +276,39 @@ export const profileSchema = z.object({
   role: userRoleSchema,
   partner_id: uuidSchema.nullable(),
   full_name: z.string().nullable(),
+  is_admin: z.boolean().default(false),
+  brand_name: z.string().nullable().default(null),
+  brand_logo_url: z.string().nullable().default(null),
+  custom_reminder_text: z.string().nullable().default(null),
   created_at: z.string().optional(),
+});
+
+export const partnerBrandingInputSchema = z.object({
+  brand_name: z.string().trim().max(80).optional().default(""),
+  brand_logo_url: z.string().trim().url("כתובת הלוגו אינה תקינה").or(z.literal("")).optional().default(""),
+  custom_reminder_text: z.string().trim().max(400).optional().default(""),
+});
+
+/** One row of the platform-wide user list on the admin screen. */
+export const adminUserRowSchema = z.object({
+  id: uuidSchema,
+  email: z.string(),
+  role: userRoleSchema,
+  full_name: z.string().nullable(),
+  is_admin: z.boolean(),
+  partner_name: z.string().nullable(),
+  created_at: z.string(),
+});
+
+export const adminBusinessRowSchema = z.object({
+  id: uuidSchema,
+  name: z.string(),
+  hp_number: z.string().nullable(),
+  address: z.string().nullable(),
+  owner_name: z.string().nullable(),
+  owner_email: z.string().nullable(),
+  partner_name: z.string().nullable(),
+  created_at: z.string(),
 });
 
 export const businessComplianceSummarySchema = z.object({

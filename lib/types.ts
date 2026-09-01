@@ -1,5 +1,7 @@
 import type { z } from "zod";
 import type {
+  adminBusinessRowSchema,
+  adminUserRowSchema,
   businessComplianceSummarySchema,
   businessProfileInputSchema,
   businessSchema,
@@ -10,6 +12,7 @@ import type {
   declarerRoleSchema,
   documentTemplateSchema,
   licensingItemSchema,
+  partnerBrandingInputSchema,
   partnerSchema,
   securityMeasuresSchema,
   securityNotesSchema,
@@ -34,6 +37,9 @@ export type GeneratedForm = z.infer<typeof generatedFormSchema>;
 export type DocumentTemplate = z.infer<typeof documentTemplateSchema>;
 export type ClientDocument = z.infer<typeof clientDocumentSchema>;
 export type Profile = z.infer<typeof profileSchema>;
+export type PartnerBrandingInput = z.infer<typeof partnerBrandingInputSchema>;
+export type AdminUserRow = z.infer<typeof adminUserRowSchema>;
+export type AdminBusinessRow = z.infer<typeof adminBusinessRowSchema>;
 export type BusinessComplianceSummary = z.infer<typeof businessComplianceSummarySchema>;
 export type ScanDocumentResult = z.infer<typeof scanDocumentResultSchema>;
 
