@@ -33,3 +33,6 @@ next-env.d.ts
 
 # generated form samples
 /tmp
+.vercel
+.env*
+!.env.example
