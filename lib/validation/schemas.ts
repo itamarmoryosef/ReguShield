@@ -334,7 +334,7 @@ export const signedUrlRequestSchema = z.object({
   documentId: uuidSchema,
 });
 
-const emailSchema = z
+export const emailSchema = z
   .string()
   .trim()
   .email({ message: "כתובת דוא״ל לא תקינה" });

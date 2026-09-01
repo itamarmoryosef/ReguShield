@@ -32,7 +32,7 @@ export default function SignupPage({
 
       {demo ? (
         <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-700">
-          מצב הדגמה: ההרשמה מדלגת על אימות ומעבירה ישירות ללוח הבקרה.
+          מצב הדגמה: ההרשמה מדלגת על אימות הדוא״ל ומעבירה ישירות לאשף ההקמה.
         </p>
       ) : null}
 
