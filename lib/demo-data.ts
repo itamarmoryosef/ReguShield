@@ -1,7 +1,11 @@
+import { monthlyCommission, totalCommission } from "./commission";
 import { computeDocumentStatus } from "./status";
 import type {
   AdminBusinessRow,
+  AdminPartner,
+  AdminReferral,
   AdminUserRow,
+  PartnerReferral,
   BusinessComplianceSummary,
   ClientDocument,
   DashboardDocument,
@@ -161,6 +165,52 @@ export const DEMO_ADMIN_USERS: AdminUserRow[] = [
     is_admin: false,
     partner_name: "רגולשילד ייעוץ ורישוי",
     created_at: "2025-01-18T08:40:00.000Z",
+  },
+];
+
+/** Prices and rates deliberately differ per client to exercise the maths. */
+const DEMO_TERMS: { price: number; rate: number }[] = [
+  { price: 290, rate: 20 },
+  { price: 150, rate: 15 },
+  { price: 150, rate: 12.5 },
+  { price: 390, rate: 15 },
+];
+
+export const DEMO_REFERRALS: PartnerReferral[] = DEMO_PORTFOLIO.map((row, index) => {
+  const terms = DEMO_TERMS[index % DEMO_TERMS.length];
+  return {
+    business_id: row.business_id,
+    name: row.name,
+    hp_number: row.hp_number,
+    created_at: row.created_at,
+    subscription_price: terms.price,
+    partner_commission_rate: terms.rate,
+    monthly_commission: monthlyCommission(terms.price, terms.rate),
+  };
+});
+
+export const DEMO_ADMIN_PARTNERS: AdminPartner[] = [
+  {
+    id: "00000000-0000-4000-8000-000000000020",
+    name: "רגולשילד ייעוץ ורישוי",
+    contact_email: "office@regushield-consulting.co.il",
+    created_at: "2025-09-21T14:03:00.000Z",
+    referrals: DEMO_REFERRALS.map(
+      (row, index): AdminReferral => ({
+        ...row,
+        owner_name: ["ישראל ישראלי", "נועה כהן", "אבי מזרחי", "דנה לוי"][index] ?? null,
+        owner_email: DEMO_ADMIN_USERS[index % DEMO_ADMIN_USERS.length].email,
+      }),
+    ),
+    total_commission: totalCommission(DEMO_REFERRALS),
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000021",
+    name: "לוי רישוי עסקים",
+    contact_email: "levi@licensing.co.il",
+    created_at: "2026-02-11T10:00:00.000Z",
+    referrals: [],
+    total_commission: 0,
   },
 ];
 

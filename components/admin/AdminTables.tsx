@@ -1,14 +1,16 @@
 "use client";
 
-import { Building2, Search, Users } from "lucide-react";
+import { Building2, Handshake, Search, Users } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { AdminBusinessRow, AdminUserRow } from "@/lib/types";
+import { AffiliatesPanel } from "@/components/admin/AffiliatesPanel";
+import type { AdminTab } from "@/lib/admin-tabs";
+import type { AdminBusinessRow, AdminPartner, AdminUserRow } from "@/lib/types";
 
-type Tab = "users" | "businesses";
-
-const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
+const TABS: { id: AdminTab; label: string; icon: typeof Users }[] = [
   { id: "users", label: "משתמשים", icon: Users },
   { id: "businesses", label: "עסקים", icon: Building2 },
+  { id: "affiliates", label: "תוכנית שותפים", icon: Handshake },
 ];
 
 function formatDate(value: string): string {
@@ -25,11 +27,15 @@ function matches(needle: string, fields: (string | null)[]): boolean {
 export function AdminTables({
   users,
   businesses,
+  partners,
+  tab,
 }: {
   users: AdminUserRow[];
   businesses: AdminBusinessRow[];
+  partners: AdminPartner[];
+  /** Held in the URL so a refresh mid-payout keeps the admin where they were. */
+  tab: AdminTab;
 }) {
-  const [tab, setTab] = useState<Tab>("users");
   const [query, setQuery] = useState("");
 
   const needle = query.trim().toLowerCase();
@@ -50,121 +56,140 @@ export function AdminTables({
   const count = tab === "users" ? visibleUsers.length : visibleBusinesses.length;
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white shadow-card">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 p-4">
-        <nav aria-label="ניווט טבלאות הניהול" className="flex gap-1 rounded-xl bg-gray-100 p-1">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              aria-current={tab === id ? "true" : undefined}
-              className={`inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors ${
-                tab === id
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </button>
-          ))}
-        </nav>
+    <div className="space-y-4">
+      <nav
+        aria-label="ניווט טבלאות הניהול"
+        className="flex w-fit gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1"
+      >
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <Link
+            key={id}
+            href={`/admin?tab=${id}`}
+            scroll={false}
+            aria-current={tab === id ? "page" : undefined}
+            className={`inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors ${
+              tab === id ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </Link>
+        ))}
+      </nav>
 
-        <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-gray-400" />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="חיפוש לפי שם, דוא״ל או כתובת"
-            className="h-9 w-full rounded-lg border border-gray-200 bg-white ps-9 pe-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-          />
-        </div>
-      </div>
-
-      {count === 0 ? (
-        <p className="px-4 py-10 text-center text-sm text-gray-500">
-          {needle ? "לא נמצאו תוצאות לחיפוש." : "אין עדיין נתונים להצגה."}
-        </p>
+      {tab === "affiliates" ? (
+        <AffiliatesPanel partners={partners} />
       ) : (
-        <div className="overflow-x-auto">
-          {tab === "users" ? (
-            <table className="w-full text-start text-sm">
-              <thead className="border-b border-gray-200 text-xs text-gray-500">
-                <tr>
-                  <Th>שם</Th>
-                  <Th>דוא״ל</Th>
-                  <Th>סוג חשבון</Th>
-                  <Th>משרד מקושר</Th>
-                  <Th>נרשם</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {visibleUsers.map((row) => (
-                  <tr key={row.id} className="transition-colors hover:bg-gray-50">
-                    <Td>
-                      <span className="font-medium text-gray-900">{row.full_name || "—"}</span>
-                      {row.is_admin ? (
-                        <span className="ms-2 rounded-full bg-gray-900 px-2 py-0.5 text-[11px] font-medium text-white">
-                          מנהל מערכת
-                        </span>
-                      ) : null}
-                    </Td>
-                    <Td>
-                      <span dir="ltr" className="text-gray-600">
-                        {row.email || "—"}
-                      </span>
-                    </Td>
-                    <Td>
-                      <RoleBadge role={row.role} />
-                    </Td>
-                    <Td>{row.partner_name || "—"}</Td>
-                    <Td>{formatDate(row.created_at)}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-card">
+          <div className="border-b border-gray-200 p-4">
+            <div className="relative sm:max-w-xs">
+              <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-gray-400" />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="חיפוש לפי שם, דוא״ל או כתובת"
+                className="h-9 w-full rounded-lg border border-gray-200 bg-white ps-9 pe-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              />
+            </div>
+          </div>
+
+          {count === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-gray-500">
+              {needle ? "לא נמצאו תוצאות לחיפוש." : "אין עדיין נתונים להצגה."}
+            </p>
           ) : (
-            <table className="w-full text-start text-sm">
-              <thead className="border-b border-gray-200 text-xs text-gray-500">
-                <tr>
-                  <Th>שם העסק</Th>
-                  <Th>ח.פ / ע.מ</Th>
-                  <Th>כתובת</Th>
-                  <Th>בעלים</Th>
-                  <Th>משרד מקושר</Th>
-                  <Th>נוצר</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {visibleBusinesses.map((row) => (
-                  <tr key={row.id} className="transition-colors hover:bg-gray-50">
-                    <Td>
-                      <span className="font-medium text-gray-900">{row.name}</span>
-                    </Td>
-                    <Td>
-                      <span dir="ltr">{row.hp_number || "—"}</span>
-                    </Td>
-                    <Td>{row.address || "—"}</Td>
-                    <Td>
-                      <span className="block text-gray-900">{row.owner_name || "—"}</span>
-                      {row.owner_email ? (
-                        <span dir="ltr" className="block text-xs text-gray-500">
-                          {row.owner_email}
-                        </span>
-                      ) : null}
-                    </Td>
-                    <Td>{row.partner_name || "—"}</Td>
-                    <Td>{formatDate(row.created_at)}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              {tab === "users" ? (
+                <UsersTable rows={visibleUsers} />
+              ) : (
+                <BusinessesTable rows={visibleBusinesses} />
+              )}
+            </div>
           )}
-        </div>
+        </section>
       )}
-    </section>
+    </div>
+  );
+}
+
+function UsersTable({ rows }: { rows: AdminUserRow[] }) {
+  return (
+    <table className="w-full text-start text-sm">
+      <thead className="border-b border-gray-200 text-xs text-gray-500">
+        <tr>
+          <Th>שם</Th>
+          <Th>דוא״ל</Th>
+          <Th>סוג חשבון</Th>
+          <Th>משרד מקושר</Th>
+          <Th>נרשם</Th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {rows.map((row) => (
+          <tr key={row.id} className="transition-colors hover:bg-gray-50">
+            <Td>
+              <span className="font-medium text-gray-900">{row.full_name || "—"}</span>
+              {row.is_admin ? (
+                <span className="ms-2 rounded-full bg-gray-900 px-2 py-0.5 text-[11px] font-medium text-white">
+                  מנהל מערכת
+                </span>
+              ) : null}
+            </Td>
+            <Td>
+              <span dir="ltr" className="text-gray-600">
+                {row.email || "—"}
+              </span>
+            </Td>
+            <Td>
+              <RoleBadge role={row.role} />
+            </Td>
+            <Td>{row.partner_name || "—"}</Td>
+            <Td>{formatDate(row.created_at)}</Td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function BusinessesTable({ rows }: { rows: AdminBusinessRow[] }) {
+  return (
+    <table className="w-full text-start text-sm">
+      <thead className="border-b border-gray-200 text-xs text-gray-500">
+        <tr>
+          <Th>שם העסק</Th>
+          <Th>ח.פ / ע.מ</Th>
+          <Th>כתובת</Th>
+          <Th>בעלים</Th>
+          <Th>משרד מקושר</Th>
+          <Th>נוצר</Th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {rows.map((row) => (
+          <tr key={row.id} className="transition-colors hover:bg-gray-50">
+            <Td>
+              <span className="font-medium text-gray-900">{row.name}</span>
+            </Td>
+            <Td>
+              <span dir="ltr">{row.hp_number || "—"}</span>
+            </Td>
+            <Td>{row.address || "—"}</Td>
+            <Td>
+              <span className="block text-gray-900">{row.owner_name || "—"}</span>
+              {row.owner_email ? (
+                <span dir="ltr" className="block text-xs text-gray-500">
+                  {row.owner_email}
+                </span>
+              ) : null}
+            </Td>
+            <Td>{row.partner_name || "—"}</Td>
+            <Td>{formatDate(row.created_at)}</Td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

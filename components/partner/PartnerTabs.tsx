@@ -1,11 +1,12 @@
 "use client";
 
-import { LayoutGrid, Settings } from "lucide-react";
+import { Coins, LayoutGrid, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
   { href: "/partner", label: "לוח בקרה", icon: LayoutGrid },
+  { href: "/partner/referrals", label: "הפניות ועמלות", icon: Coins },
   { href: "/partner/settings", label: "הגדרות", icon: Settings },
 ];
 

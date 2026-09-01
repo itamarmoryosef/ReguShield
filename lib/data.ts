@@ -1,4 +1,4 @@
-import { DEMO_PORTFOLIO, DEMO_TEMPLATES, getDemoDashboardDocuments } from "./demo-data";
+import { DEMO_PORTFOLIO, DEMO_REFERRALS, DEMO_TEMPLATES, getDemoDashboardDocuments } from "./demo-data";
 import { readDemoActiveTemplateIds, readDemoBusinessProfile } from "./demo-store";
 import { isDemoMode } from "./env";
 import { resolveCardStatus } from "./status";
@@ -11,6 +11,7 @@ import type {
   DashboardDocument,
   DocumentTemplate,
   Partner,
+  PartnerReferral,
   Profile,
 } from "./types";
 import {
@@ -18,6 +19,7 @@ import {
   businessSchema,
   clientDocumentSchema,
   documentTemplateSchema,
+  partnerReferralSchema,
   partnerSchema,
   profileSchema,
 } from "./validation/schemas";
@@ -261,5 +263,27 @@ export async function getPartnerPortfolio(
   if (error || !data) return [];
 
   const parsed = businessComplianceSummarySchema.array().safeParse(data);
+  return parsed.success ? parsed.data : [];
+}
+
+/**
+ * Referred clients with the commission each one earns.
+ *
+ * The view carries the figure the database computed, so the partner sees the
+ * same number the admin will pay out.
+ */
+export async function getPartnerReferrals(partnerId: string): Promise<PartnerReferral[]> {
+  if (isDemoMode()) return DEMO_REFERRALS;
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("partner_referral_earnings")
+    .select("*")
+    .eq("partner_id", partnerId)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) return [];
+
+  const parsed = partnerReferralSchema.array().safeParse(data);
   return parsed.success ? parsed.data : [];
 }

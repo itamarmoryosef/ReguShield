@@ -289,6 +289,46 @@ export const partnerBrandingInputSchema = z.object({
   custom_reminder_text: z.string().trim().max(400).optional().default(""),
 });
 
+/**
+ * Money arrives from PostgREST as either a JSON number or a string depending on
+ * the column type, so every amount is coerced rather than trusted.
+ */
+export const businessBillingInputSchema = z.object({
+  subscription_price: z.coerce
+    .number({ invalid_type_error: "מחיר המנוי חייב להיות מספר" })
+    .min(0, "מחיר המנוי לא יכול להיות שלילי")
+    .max(100000, "מחיר המנוי גבוה מדי"),
+  partner_commission_rate: z.coerce
+    .number({ invalid_type_error: "אחוז העמלה חייב להיות מספר" })
+    .min(0, "אחוז העמלה לא יכול להיות שלילי")
+    .max(100, "אחוז העמלה לא יכול לעלות על 100"),
+});
+
+export const partnerReferralSchema = z.object({
+  business_id: uuidSchema,
+  name: z.string(),
+  hp_number: z.string().nullable(),
+  created_at: z.string(),
+  subscription_price: z.coerce.number(),
+  partner_commission_rate: z.coerce.number(),
+  monthly_commission: z.coerce.number(),
+});
+
+/** A referred client as the admin sees it, with the owner behind it. */
+export const adminReferralSchema = partnerReferralSchema.extend({
+  owner_name: z.string().nullable(),
+  owner_email: z.string().nullable(),
+});
+
+export const adminPartnerSchema = z.object({
+  id: uuidSchema,
+  name: z.string(),
+  contact_email: z.string().nullable(),
+  created_at: z.string(),
+  referrals: adminReferralSchema.array(),
+  total_commission: z.number(),
+});
+
 /** One row of the platform-wide user list on the admin screen. */
 export const adminUserRowSchema = z.object({
   id: uuidSchema,

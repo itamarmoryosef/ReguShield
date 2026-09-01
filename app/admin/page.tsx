@@ -3,12 +3,17 @@ import { redirect } from "next/navigation";
 import { AdminTables } from "@/components/admin/AdminTables";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { getAdminOverview } from "@/lib/admin";
+import { parseAdminTab } from "@/lib/admin-tabs";
 import { getCurrentProfile } from "@/lib/data";
 import { isDemoMode } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams?: { tab?: string };
+}) {
   const demo = isDemoMode();
   const profile = await getCurrentProfile();
 
@@ -39,7 +44,12 @@ export default async function AdminPage() {
           <StatCard label="משרדי ייעוץ" value={overview.partnerCount} icon={Briefcase} />
         </section>
 
-        <AdminTables users={overview.users} businesses={overview.businesses} />
+        <AdminTables
+          users={overview.users}
+          businesses={overview.businesses}
+          partners={overview.partners}
+          tab={parseAdminTab(searchParams?.tab)}
+        />
       </div>
     </>
   );
