@@ -214,13 +214,20 @@ export const DEMO_ADMIN_PARTNERS: AdminPartner[] = [
   },
 ];
 
-export const DEMO_ADMIN_BUSINESSES: AdminBusinessRow[] = DEMO_PORTFOLIO.map((row, index) => ({
-  id: row.business_id,
-  name: row.name,
-  hp_number: row.hp_number,
-  address: row.address,
-  owner_name: ["ישראל ישראלי", "נועה כהן", "אבי מזרחי", "דנה לוי"][index] ?? null,
-  owner_email: DEMO_ADMIN_USERS[index % DEMO_ADMIN_USERS.length].email,
-  partner_name: "רגולשילד ייעוץ ורישוי",
-  created_at: row.created_at,
-}));
+export const DEMO_ADMIN_BUSINESSES: AdminBusinessRow[] = DEMO_PORTFOLIO.map((row, index) => {
+  const terms = DEMO_TERMS[index % DEMO_TERMS.length];
+  return {
+    id: row.business_id,
+    name: row.name,
+    hp_number: row.hp_number,
+    address: row.address,
+    owner_name: ["ישראל ישראלי", "נועה כהן", "אבי מזרחי", "דנה לוי"][index] ?? null,
+    owner_email: DEMO_ADMIN_USERS[index % DEMO_ADMIN_USERS.length].email,
+    partner_id: row.partner_id,
+    partner_name: "רגולשילד ייעוץ ורישוי",
+    subscription_price: terms.price,
+    partner_commission_rate: terms.rate,
+    monthly_commission: monthlyCommission(terms.price, terms.rate),
+    created_at: row.created_at,
+  };
+});

@@ -347,8 +347,18 @@ export const adminBusinessRowSchema = z.object({
   address: z.string().nullable(),
   owner_name: z.string().nullable(),
   owner_email: z.string().nullable(),
+  partner_id: uuidSchema.nullable(),
   partner_name: z.string().nullable(),
+  subscription_price: z.coerce.number(),
+  partner_commission_rate: z.coerce.number(),
+  monthly_commission: z.coerce.number(),
   created_at: z.string(),
+});
+
+/** Partner options for the assignment dropdown on the admin screen. */
+export const partnerOptionSchema = z.object({
+  id: uuidSchema,
+  name: z.string(),
 });
 
 export const businessComplianceSummarySchema = z.object({

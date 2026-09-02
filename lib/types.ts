@@ -16,6 +16,7 @@ import type {
   documentTemplateSchema,
   licensingItemSchema,
   partnerBrandingInputSchema,
+  partnerOptionSchema,
   partnerReferralSchema,
   partnerSchema,
   securityMeasuresSchema,
@@ -48,6 +49,7 @@ export type BusinessBillingInput = z.infer<typeof businessBillingInputSchema>;
 export type PartnerReferral = z.infer<typeof partnerReferralSchema>;
 export type AdminReferral = z.infer<typeof adminReferralSchema>;
 export type AdminPartner = z.infer<typeof adminPartnerSchema>;
+export type PartnerOption = z.infer<typeof partnerOptionSchema>;
 export type BusinessComplianceSummary = z.infer<typeof businessComplianceSummarySchema>;
 export type ScanDocumentResult = z.infer<typeof scanDocumentResultSchema>;
 

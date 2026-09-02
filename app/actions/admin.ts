@@ -82,3 +82,53 @@ export async function updateBusinessBilling(
     throw new AppError(toUserMessage(error), { code: "BILLING_SAVE_FAILED", status: 500 });
   }
 }
+
+/**
+ * Links a business to a referring partner, or detaches it when given null.
+ *
+ * The billing terms are keyed by business and stay put, so reassigning moves
+ * the existing commission to the new partner rather than resetting it.
+ */
+export async function assignBusinessPartner(
+  businessId: string,
+  partnerId: string | null,
+): Promise<{ partnerName: string | null }> {
+  try {
+    const id = parseOrThrow(uuidSchema, businessId);
+    const partner = partnerId ? parseOrThrow(uuidSchema, partnerId) : null;
+
+    if (isDemoMode()) {
+      return { partnerName: partnerId ? "משרד לדוגמה" : null };
+    }
+
+    await assertAdmin();
+
+    const admin = createServiceClient();
+
+    let partnerName: string | null = null;
+    if (partner) {
+      const { data } = await admin.from("partners").select("name").eq("id", partner).maybeSingle();
+      if (!data) {
+        throw new AppError("המשרד המבוקש לא נמצא", { code: "PARTNER_NOT_FOUND", status: 404 });
+      }
+      partnerName = data.name;
+    }
+
+    const { error } = await admin
+      .from("businesses")
+      .update({ partner_id: partner })
+      .eq("id", id);
+
+    if (error) {
+      throw new AppError("שיוך המשרד נכשל", { code: "PARTNER_ASSIGN_FAILED", status: 502 });
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/partner");
+    revalidatePath("/partner/referrals");
+
+    return { partnerName };
+  } catch (error) {
+    throw new AppError(toUserMessage(error), { code: "PARTNER_ASSIGN_FAILED", status: 500 });
+  }
+}

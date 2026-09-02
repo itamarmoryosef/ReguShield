@@ -1,11 +1,14 @@
 "use client";
 
-import { Building2, Handshake, Search, Users } from "lucide-react";
+import { Building2, Handshake, Search, Settings2, Users } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AffiliatesPanel } from "@/components/admin/AffiliatesPanel";
+import { ManageBusinessModal } from "@/components/admin/ManageBusinessModal";
+import { Button } from "@/components/ui/Button";
 import type { AdminTab } from "@/lib/admin-tabs";
-import type { AdminBusinessRow, AdminPartner, AdminUserRow } from "@/lib/types";
+import { formatShekels } from "@/lib/commission";
+import type { AdminBusinessRow, AdminPartner, AdminUserRow, PartnerOption } from "@/lib/types";
 
 const TABS: { id: AdminTab; label: string; icon: typeof Users }[] = [
   { id: "users", label: "משתמשים", icon: Users },
@@ -37,6 +40,9 @@ export function AdminTables({
   tab: AdminTab;
 }) {
   const [query, setQuery] = useState("");
+  // Edits are kept here so a save updates the row without re-fetching the page.
+  const [edited, setEdited] = useState<Record<string, AdminBusinessRow>>({});
+  const [managingId, setManagingId] = useState<string | null>(null);
 
   const needle = query.trim().toLowerCase();
 
@@ -45,13 +51,25 @@ export function AdminTables({
     [users, needle],
   );
 
+  const businessRows = useMemo(
+    () => businesses.map((row) => edited[row.id] ?? row),
+    [businesses, edited],
+  );
+
   const visibleBusinesses = useMemo(
     () =>
-      businesses.filter((row) =>
+      businessRows.filter((row) =>
         matches(needle, [row.name, row.hp_number, row.address, row.owner_name, row.owner_email]),
       ),
-    [businesses, needle],
+    [businessRows, needle],
   );
+
+  const partnerOptions: PartnerOption[] = useMemo(
+    () => partners.map((partner) => ({ id: partner.id, name: partner.name })),
+    [partners],
+  );
+
+  const managing = managingId ? businessRows.find((row) => row.id === managingId) ?? null : null;
 
   const count = tab === "users" ? visibleUsers.length : visibleBusinesses.length;
 
@@ -103,12 +121,21 @@ export function AdminTables({
               {tab === "users" ? (
                 <UsersTable rows={visibleUsers} />
               ) : (
-                <BusinessesTable rows={visibleBusinesses} />
+                <BusinessesTable rows={visibleBusinesses} onManage={setManagingId} />
               )}
             </div>
           )}
         </section>
       )}
+
+      {managing ? (
+        <ManageBusinessModal
+          business={managing}
+          partners={partnerOptions}
+          onClose={() => setManagingId(null)}
+          onSaved={(row) => setEdited((current) => ({ ...current, [row.id]: row }))}
+        />
+      ) : null}
     </div>
   );
 }
@@ -153,17 +180,25 @@ function UsersTable({ rows }: { rows: AdminUserRow[] }) {
   );
 }
 
-function BusinessesTable({ rows }: { rows: AdminBusinessRow[] }) {
+function BusinessesTable({
+  rows,
+  onManage,
+}: {
+  rows: AdminBusinessRow[];
+  onManage: (id: string) => void;
+}) {
   return (
     <table className="w-full text-start text-sm">
       <thead className="border-b border-gray-200 text-xs text-gray-500">
         <tr>
           <Th>שם העסק</Th>
           <Th>ח.פ / ע.מ</Th>
-          <Th>כתובת</Th>
           <Th>בעלים</Th>
           <Th>משרד מקושר</Th>
+          <Th>מנוי</Th>
+          <Th>עמלה</Th>
           <Th>נוצר</Th>
+          <Th>פעולות</Th>
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
@@ -171,11 +206,13 @@ function BusinessesTable({ rows }: { rows: AdminBusinessRow[] }) {
           <tr key={row.id} className="transition-colors hover:bg-gray-50">
             <Td>
               <span className="font-medium text-gray-900">{row.name}</span>
+              {row.address ? (
+                <span className="block text-xs text-gray-500">{row.address}</span>
+              ) : null}
             </Td>
             <Td>
               <span dir="ltr">{row.hp_number || "—"}</span>
             </Td>
-            <Td>{row.address || "—"}</Td>
             <Td>
               <span className="block text-gray-900">{row.owner_name || "—"}</span>
               {row.owner_email ? (
@@ -185,7 +222,26 @@ function BusinessesTable({ rows }: { rows: AdminBusinessRow[] }) {
               ) : null}
             </Td>
             <Td>{row.partner_name || "—"}</Td>
-            <Td>{formatDate(row.created_at)}</Td>
+            <Td>
+              <span className="whitespace-nowrap">{formatShekels(row.subscription_price)}</span>
+            </Td>
+            <Td>
+              <span className="whitespace-nowrap">
+                {formatShekels(row.monthly_commission)}
+                <span className="block text-xs text-gray-500">
+                  {row.partner_commission_rate}%
+                </span>
+              </span>
+            </Td>
+            <Td>
+              <span className="whitespace-nowrap">{formatDate(row.created_at)}</span>
+            </Td>
+            <Td>
+              <Button type="button" size="sm" variant="outline" onClick={() => onManage(row.id)}>
+                <Settings2 className="h-3.5 w-3.5" />
+                ניהול
+              </Button>
+            </Td>
           </tr>
         ))}
       </tbody>
