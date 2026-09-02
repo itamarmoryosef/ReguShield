@@ -87,43 +87,56 @@ npx supabase db push
 ומיועד לפיתוח בלבד; הרשמה שלישית מקבלת `over_email_send_rate_limit` ולא נשלח
 שום קישור.
 
-`supabase/config.toml` כבר מוגדר ל-Resend, והמפתח נשאב מ-`RESEND_API_KEY`
+### המצב כיום: מוגדר ופעיל
+
+השליחה עוברת דרך Resend מהדומיין המאומת `crmit.co.il`, וכתובת השולח היא
+`noreply@crmit.co.il`. מגבלת המיילים הועלתה מ-2 ל-100 בשעה.
+
+`supabase/config.toml` מתאר את אותה תצורה, והמפתח נשאב מ-`RESEND_API_KEY`
 בסביבה בזמן ה-push כדי שלא ייכנס ל-git.
 
-### שלב חסר: אימות הדומיין
+### כלל שאסור לשכוח: הדומיין חייב להיות מאומת
 
-**מפתח API לבד לא מספיק.** עד שהדומיין מאומת, Resend מחזיר 403 לכל נמען שאינו
-בעל חשבון Resend עצמו — כלומר מעבר ל-Resend לפני אימות הדומיין ישבור את
-ההרשמה לכל לקוח אמיתי. לכן אין להריץ `config push` לפני שהאימות עבר.
+עד שדומיין מאומת ב-Resend, השירות מחזיר 403 לכל נמען שאינו בעל חשבון Resend
+עצמו. המשמעות המעשית: **אין לשנות את `admin_email` לדומיין שלא אומת** — זה
+ישבור את ההרשמה לכל לקוח אמיתי, בעוד שבדיקה עם הכתובת של בעל החשבון תיראה
+תקינה לחלוטין. זו תקלה שמסתירה את עצמה.
 
-הדומיין `bureaucracy.co.il` נרשם ב-Resend באזור `eu-west-1`. ה-DNS שלו מנוהל
-ב-AWS Route 53, ושם צריך להוסיף שלוש רשומות:
+הרשומות שמאמתות דומיין ב-Resend (הערכים ייחודיים לכל דומיין, יש לקחת אותם
+מ-Resend):
 
-| סוג | שם | ערך |
+| סוג | שם | תפקיד |
 | --- | --- | --- |
-| TXT | `resend._domainkey.bureaucracy.co.il` | `p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDUr0gQ01irlJIYM5wyb0kD/QmC6tpxj2tfr3WPsvIKtUmaVcsdmW1OPU9qCdUf/5m8X/mxo+FA5fejATHv4WQ3JV6fK/n+ULUYCn3VfzSGbJn66Tig68Z27NxA3L/ScYVBfbJqazocLtEjolMN6y3yXs0SxnfzB9OWPf1Rvih88QIDAQAB` |
-| MX | `send.bureaucracy.co.il` | `feedback-smtp.eu-west-1.amazonses.com` (עדיפות 10) |
-| TXT | `send.bureaucracy.co.il` | `v=spf1 include:amazonses.com ~all` |
+| TXT | `resend._domainkey` | DKIM — זו הרשומה שמאמתת את הדומיין |
+| MX | `send` | נתיב חזרה לטיפול בהחזרות (עדיפות 10) |
+| TXT | `send` | SPF לנתיב החזרה |
 
-ב-Route 53 יש לעטוף ערכי TXT במרכאות כפולות.
+שתי מלכודות שנתקלנו בהן בפועל:
 
-מומלץ להוסיף גם רשומת DMARC לשיפור מסירה:
-TXT על `_dmarc.bureaucracy.co.il` בערך `v=DMARC1; p=none;`.
+- רשומת ה-MX חייבת לשבת על תת-הדומיין `send`, לא על השורש. רשומת MX של
+  `feedback-smtp` בשורש הופכת לכתובת גיבוי לדואר הנכנס, ובזמן שהיא שם מיילים
+  שנשלחים לדומיין יכולים להיעלם אם ספק הדואר הראשי לא יגיב לרגע.
+- ערך ה-DKIM חייב להתחיל מיד ב-`p=`. תווי רווח שנדבקים בהעתקה מונעים אימות.
 
-### אחרי שהרשומות קיימות
+### פקודות שימושיות
 
 ```bash
-# לאמת ב-Resend ולהמתין ל-status = verified
+# מצב האימות של דומיין
+curl https://api.resend.com/domains -H "Authorization: Bearer $RESEND_API_KEY"
+
+# בקשת אימות מחדש אחרי תיקון רשומות
 curl -X POST https://api.resend.com/domains/<domain-id>/verify \
   -H "Authorization: Bearer $RESEND_API_KEY"
-
-# ורק אז להחליף את השולח בפועל
-npx supabase config push
 ```
 
 לשים לב: המסלול החינמי של Resend מוגבל ל-100 מיילים ביום. `email_sent = 100`
 ב-`[auth.rate_limit]` הוא תקרת שימוש-לרעה לשעה, לא המגבלה האמיתית — המגבלה
 היומית של הספק היא זו שתיפגע קודם.
+
+### תבניות המייל עדיין באנגלית
+
+תבניות ברירת המחדל של Supabase Auth באנגלית, כך שלקוח שנרשם למוצר עברי מקבל
+"Reset your password". יש להחליף אותן לתבניות עברית לפני גיוס לקוחות.
 
 ## זרימת אימות האימייל
 

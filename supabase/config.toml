@@ -240,16 +240,19 @@ otp_expiry = 3600
 # Production SMTP via Resend. The built-in Supabase sender is capped at a
 # couple of emails an hour, which is not a mail service — it is a demo.
 #
+# crmit.co.il is the verified sending domain. Resend refuses any recipient
+# except the account owner while a domain is unverified, so this address must
+# stay on a domain that is actually verified at Resend.
+#
 # The key is substituted from the environment at push time so it never lands
-# in git. Sending only works once bureaucracy.co.il is verified at Resend;
-# until then Resend rejects every recipient except the account owner.
+# in git.
 [auth.email.smtp]
 enabled = true
 host = "smtp.resend.com"
 port = 465
 user = "resend"
 pass = "env(RESEND_API_KEY)"
-admin_email = "noreply@bureaucracy.co.il"
+admin_email = "noreply@crmit.co.il"
 sender_name = "ReguShield"
 
 # Uncomment to customize email template
