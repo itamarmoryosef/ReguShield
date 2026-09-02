@@ -198,7 +198,9 @@ password_requirements = ""
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+# Raised off the built-in cap of 2 now that Resend handles delivery. Kept
+# finite on purpose: this is the blast radius if someone scripts signups.
+email_sent = 100
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
@@ -235,15 +237,20 @@ otp_length = 8
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
-# Use a production-ready SMTP server
-# [auth.email.smtp]
-# enabled = true
-# host = "smtp.sendgrid.net"
-# port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+# Production SMTP via Resend. The built-in Supabase sender is capped at a
+# couple of emails an hour, which is not a mail service — it is a demo.
+#
+# The key is substituted from the environment at push time so it never lands
+# in git. Sending only works once bureaucracy.co.il is verified at Resend;
+# until then Resend rejects every recipient except the account owner.
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(RESEND_API_KEY)"
+admin_email = "noreply@bureaucracy.co.il"
+sender_name = "ReguShield"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]
