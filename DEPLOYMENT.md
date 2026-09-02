@@ -87,23 +87,43 @@ npx supabase db push
 ומיועד לפיתוח בלבד; הרשמה שלישית מקבלת `over_email_send_rate_limit` ולא נשלח
 שום קישור.
 
-לפתרון: להוציא חשבון אצל ספק (Resend, SendGrid, Postmark, Brevo, SES), ואז
-ב-`supabase/config.toml` להסיר את ההערה מהבלוק ולמלא:
+`supabase/config.toml` כבר מוגדר ל-Resend, והמפתח נשאב מ-`RESEND_API_KEY`
+בסביבה בזמן ה-push כדי שלא ייכנס ל-git.
 
-```toml
-[auth.email.smtp]
-enabled = true
-host = "smtp.resend.com"
-port = 587
-user = "resend"
-pass = "env(SMTP_PASSWORD)"
-admin_email = "noreply@your-domain.co.il"
-sender_name = "ReguShield"
+### שלב חסר: אימות הדומיין
+
+**מפתח API לבד לא מספיק.** עד שהדומיין מאומת, Resend מחזיר 403 לכל נמען שאינו
+בעל חשבון Resend עצמו — כלומר מעבר ל-Resend לפני אימות הדומיין ישבור את
+ההרשמה לכל לקוח אמיתי. לכן אין להריץ `config push` לפני שהאימות עבר.
+
+הדומיין `bureaucracy.co.il` נרשם ב-Resend באזור `eu-west-1`. ה-DNS שלו מנוהל
+ב-AWS Route 53, ושם צריך להוסיף שלוש רשומות:
+
+| סוג | שם | ערך |
+| --- | --- | --- |
+| TXT | `resend._domainkey.bureaucracy.co.il` | `p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDUr0gQ01irlJIYM5wyb0kD/QmC6tpxj2tfr3WPsvIKtUmaVcsdmW1OPU9qCdUf/5m8X/mxo+FA5fejATHv4WQ3JV6fK/n+ULUYCn3VfzSGbJn66Tig68Z27NxA3L/ScYVBfbJqazocLtEjolMN6y3yXs0SxnfzB9OWPf1Rvih88QIDAQAB` |
+| MX | `send.bureaucracy.co.il` | `feedback-smtp.eu-west-1.amazonses.com` (עדיפות 10) |
+| TXT | `send.bureaucracy.co.il` | `v=spf1 include:amazonses.com ~all` |
+
+ב-Route 53 יש לעטוף ערכי TXT במרכאות כפולות.
+
+מומלץ להוסיף גם רשומת DMARC לשיפור מסירה:
+TXT על `_dmarc.bureaucracy.co.il` בערך `v=DMARC1; p=none;`.
+
+### אחרי שהרשומות קיימות
+
+```bash
+# לאמת ב-Resend ולהמתין ל-status = verified
+curl -X POST https://api.resend.com/domains/<domain-id>/verify \
+  -H "Authorization: Bearer $RESEND_API_KEY"
+
+# ורק אז להחליף את השולח בפועל
+npx supabase config push
 ```
 
-ואז להעלות את המגבלה ב-`[auth.rate_limit]` (למשל `email_sent = 100`) ולהריץ
-`npx supabase config push`. את הדומיין צריך לאמת אצל הספק, אחרת המיילים ייפלו
-לספאם.
+לשים לב: המסלול החינמי של Resend מוגבל ל-100 מיילים ביום. `email_sent = 100`
+ב-`[auth.rate_limit]` הוא תקרת שימוש-לרעה לשעה, לא המגבלה האמיתית — המגבלה
+היומית של הספק היא זו שתיפגע קודם.
 
 ## זרימת אימות האימייל
 
