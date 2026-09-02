@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { resolveRole } from "@/lib/auth/post-auth";
+import { postAuthDestination, resolveRole } from "@/lib/auth/post-auth";
 import { isDemoMode, siteUrl } from "@/lib/env";
 import { AppError, toUserMessage } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
@@ -10,6 +10,7 @@ import {
   emailSchema,
   liveSignInSchema,
   liveSignUpSchema,
+  resetPasswordSchema,
   signInSchema,
   signUpSchema,
 } from "@/lib/validation/schemas";
@@ -125,6 +126,82 @@ export async function resendVerificationEmail(formData: FormData) {
   }
 
   redirect(`${target}&sent=1`);
+}
+
+/**
+ * Starts a password reset.
+ *
+ * Always reports the same thing whether or not the address has an account:
+ * a differing response would turn this form into a way to test which of your
+ * customers' emails are registered.
+ */
+export async function requestPasswordReset(formData: FormData) {
+  const email = String(formData.get("email") ?? "");
+  const sent = `/forgot-password?sent=1&email=${encodeURIComponent(email)}`;
+
+  const parsed = emailSchema.safeParse(email);
+  if (!parsed.success) {
+    redirect(
+      `/forgot-password?error=${encodeURIComponent("כתובת הדוא״ל אינה תקינה")}&email=${encodeURIComponent(email)}`,
+    );
+  }
+
+  if (isDemoMode()) {
+    redirect(sent);
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
+    // The recovery link arrives as a bare PKCE code with no hint of what it was
+    // for, so the intent is carried in the URL and read back in the callback.
+    redirectTo: `${siteUrl()}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
+  });
+
+  if (error && /security purposes|rate limit|too many/i.test(error.message)) {
+    redirect(
+      `/forgot-password?error=${encodeURIComponent("כבר שלחנו קישור לאחרונה. נסו שוב בעוד דקה.")}&email=${encodeURIComponent(email)}`,
+    );
+  }
+
+  redirect(sent);
+}
+
+/** Sets a new password for the session opened by a recovery link. */
+export async function updatePassword(formData: FormData) {
+  try {
+    const input = parseFormData(resetPasswordSchema, formData);
+
+    if (isDemoMode()) {
+      redirect("/business");
+    }
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      redirect(
+        `/forgot-password?error=${encodeURIComponent("פג תוקף קישור השחזור. בקשו קישור חדש.")}`,
+      );
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: input.password });
+    if (error) {
+      throw new AppError(
+        /same/i.test(error.message)
+          ? "הסיסמה החדשה זהה לקודמת. בחרו סיסמה אחרת."
+          : "עדכון הסיסמה נכשל. נסו שוב.",
+        { code: "PASSWORD_UPDATE_FAILED", status: 400 },
+      );
+    }
+
+    const destination = await postAuthDestination(supabase, user.id);
+    redirect(destination);
+  } catch (error) {
+    if (isRedirectError(error)) throw error;
+    redirect(`/reset-password?error=${encodeURIComponent(toUserMessage(error))}`);
+  }
 }
 
 export async function signOut() {

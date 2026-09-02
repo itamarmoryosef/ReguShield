@@ -6,7 +6,9 @@ import { signIn } from "@/app/actions/auth";
 import type { UserRole } from "@/lib/types";
 import { firstZodMessage, formDataToRecord } from "@/lib/validation/parse";
 import { liveSignInSchema, signInSchema } from "@/lib/validation/schemas";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { PasswordField } from "@/components/ui/PasswordField";
 import { TextField } from "@/components/ui/TextField";
 import { RoleToggle } from "./RoleToggle";
 
@@ -53,15 +55,23 @@ export function LoginForm({ demo }: { demo: boolean }) {
         required={!demo}
         disabled={pending}
       />
-      <TextField
+      <PasswordField
         label="סיסמה"
         name="password"
-        type="password"
         placeholder="••••••••"
         autoComplete="current-password"
         required={!demo}
         disabled={pending}
       />
+
+      <div className="flex justify-end">
+        <Link
+          href="/forgot-password"
+          className="text-xs font-medium text-brand-600 transition-colors hover:text-brand-700"
+        >
+          שכחתי סיסמה
+        </Link>
+      </div>
 
       <Button type="submit" size="md" variant="primary" className="w-full" disabled={pending}>
         {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeft className="h-4 w-4" />}

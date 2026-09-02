@@ -7,6 +7,7 @@ import type { UserRole } from "@/lib/types";
 import { firstZodMessage, formDataToRecord } from "@/lib/validation/parse";
 import { liveSignUpSchema, signUpSchema } from "@/lib/validation/schemas";
 import { Button } from "@/components/ui/Button";
+import { PasswordField } from "@/components/ui/PasswordField";
 import { TextField } from "@/components/ui/TextField";
 import { RoleToggle } from "./RoleToggle";
 
@@ -53,10 +54,9 @@ export function SignupForm({ demo }: { demo: boolean }) {
         required={!demo}
         disabled={pending}
       />
-      <TextField
+      <PasswordField
         label="סיסמה"
         name="password"
-        type="password"
         placeholder="לפחות 6 תווים"
         autoComplete="new-password"
         required={!demo}

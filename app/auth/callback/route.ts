@@ -13,6 +13,22 @@ function loginError(request: Request, message: string): NextResponse {
 }
 
 /**
+ * Accepts only same-origin paths. `next` arrives from a link in an email, so
+ * echoing it back unchecked would let a crafted address forward a freshly
+ * authenticated visitor to another site.
+ */
+function safeNext(value: string | null, request: Request): string | null {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return null;
+
+  try {
+    const target = new URL(value, request.url);
+    return target.origin === new URL(request.url).origin ? target.pathname + target.search : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Landing point for the verification link in Supabase's confirmation email.
  *
  * Two shapes arrive here depending on the flow: a PKCE `code`, or a
@@ -32,8 +48,10 @@ export async function GET(request: Request) {
     return loginError(request, "קישור האימות אינו תקף או שפג תוקפו. בקשו קישור חדש.");
   }
 
+  const next = safeNext(url.searchParams.get("next"), request);
+
   if (isDemoMode()) {
-    return NextResponse.redirect(new URL("/business", request.url));
+    return NextResponse.redirect(new URL(next ?? "/business", request.url));
   }
 
   const supabase = createClient();
@@ -61,6 +79,13 @@ export async function GET(request: Request) {
 
   if (!user) {
     return loginError(request, "אימות הקישור נכשל. בקשו קישור חדש.");
+  }
+
+  // A recovery link has to reach the new-password form rather than a dashboard,
+  // otherwise the person who asked to reset never gets to set anything.
+  const recovery = next ?? (type === "recovery" ? "/reset-password" : null);
+  if (recovery) {
+    return NextResponse.redirect(new URL(recovery, request.url));
   }
 
   let destination: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import { ShieldCheck } from "lucide-react";
+import { PasswordField } from "@/components/ui/PasswordField";
 import { TextField } from "@/components/ui/TextField";
 import type { StepProps } from "./types";
 
@@ -17,9 +18,8 @@ export function AccountStep({ data, errors, update, disabled }: StepProps) {
         error={errors.email}
         disabled={disabled}
       />
-      <TextField
+      <PasswordField
         label="סיסמה"
-        type="password"
         value={data.password}
         onChange={(event) => update("password", event.target.value)}
         placeholder="לפחות 6 תווים"

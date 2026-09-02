@@ -411,9 +411,19 @@ export const emailSchema = z
   .trim()
   .email({ message: "כתובת דוא״ל לא תקינה" });
 
-const passwordSchema = z
+export const passwordSchema = z
   .string()
   .min(6, { message: "הסיסמה חייבת להכיל לפחות 6 תווים" });
+
+export const resetPasswordSchema = z
+  .object({
+    password: passwordSchema,
+    confirm_password: z.string(),
+  })
+  .refine((value) => value.password === value.confirm_password, {
+    message: "הסיסמאות אינן תואמות",
+    path: ["confirm_password"],
+  });
 
 export const signInSchema = z.object({
   email: emailSchema.or(z.literal("")),
