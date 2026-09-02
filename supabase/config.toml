@@ -255,6 +255,19 @@ pass = "env(RESEND_API_KEY)"
 admin_email = "noreply@crmit.co.il"
 sender_name = "ReguShield"
 
+# Hebrew templates, and more importantly templates that link through
+# token_hash instead of the default ConfirmationURL. The default link carries a
+# PKCE code whose verifier sits in a cookie in the browser that started the
+# flow, so it fails whenever the mail is opened on another device — which for a
+# password reset is the normal case, not the edge case.
+[auth.email.template.recovery]
+subject = "איפוס סיסמה ב-ReguShield"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.confirmation]
+subject = "אימות כתובת הדוא״ל ב-ReguShield"
+content_path = "./supabase/templates/confirmation.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

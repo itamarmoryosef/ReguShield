@@ -70,7 +70,13 @@ export async function GET(request: Request) {
       return loginError(request, "אימות הקישור נכשל. בקשו קישור חדש.");
     }
   } else {
-    return loginError(request, "חסר קוד אימות בקישור.");
+    // Nothing usable in the query string. Supabase's implicit flow returns the
+    // session, or its refusal, after the '#', and a fragment never reaches the
+    // server — so this request only looks empty. Hand it to the browser, which
+    // can read the fragment and finish or explain the failure.
+    const complete = new URL("/auth/complete", request.url);
+    if (next) complete.searchParams.set("next", next);
+    return NextResponse.redirect(complete);
   }
 
   const {
