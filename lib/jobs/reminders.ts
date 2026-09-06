@@ -12,22 +12,72 @@ import type { z } from "zod";
 
 type DueDocument = z.infer<typeof dueDocumentSchema>;
 
-/** Documents that already have a reminder waiting or in flight. */
-async function openJobDocumentIds(
+/**
+ * How long to stay quiet about a document we already wrote about.
+ *
+ * The cron runs daily while a document stays expired for weeks. Deduping only
+ * against unsent jobs is not enough: once a reminder is delivered the job is
+ * marked sent, so the next morning the same document looks fresh again and the
+ * customer gets the same email every single day until they act. The interval
+ * shortens as the deadline approaches, so a permit lapsing next week is nudged
+ * weekly while one lapsing in two months is mentioned monthly.
+ */
+export function cooldownDays(document: DueDocument): number {
+  if (document.status === "expired" || !document.expiry_date) return 7;
+
+  const days = Math.ceil((new Date(document.expiry_date).getTime() - Date.now()) / 86_400_000);
+  if (Number.isNaN(days) || days <= 7) return 7;
+  if (days <= 30) return 14;
+  return 30;
+}
+
+/** Documents we must not write about yet: one is in flight, or was just sent. */
+async function silencedDocumentIds(
   admin: ReturnType<typeof createServiceClient>,
-  documentIds: string[],
+  documents: DueDocument[],
 ): Promise<Set<string>> {
   const { data, error } = await admin
     .from("reminder_jobs")
-    .select("document_id")
-    .in("status", ["pending", "processing"])
-    .in("document_id", documentIds);
+    .select("document_id, status, updated_at")
+    .in("status", ["pending", "processing", "sent", "cancelled"])
+    .in(
+      "document_id",
+      documents.map((document) => document.id),
+    );
 
   if (error) {
     throw new AppError("בדיקת תזכורות קיימות נכשלה", { code: "ENQUEUE_DEDUPE_FAILED", status: 500 });
   }
 
-  return new Set((data ?? []).map((row) => row.document_id).filter((id): id is string => Boolean(id)));
+  // Only the newest job per document decides, so an old delivery cannot keep a
+  // document silent forever.
+  const latest = new Map<string, { status: string; at: number }>();
+  for (const row of data ?? []) {
+    const id = row.document_id;
+    if (typeof id !== "string") continue;
+    const at = new Date(row.updated_at as string).getTime();
+    const seen = latest.get(id);
+    if (!seen || at > seen.at) latest.set(id, { status: row.status as string, at });
+  }
+
+  const silenced = new Set<string>();
+
+  for (const document of documents) {
+    const last = latest.get(document.id);
+    if (!last) continue;
+
+    if (last.status === "pending" || last.status === "processing") {
+      silenced.add(document.id);
+      continue;
+    }
+
+    const elapsedDays = (Date.now() - last.at) / 86_400_000;
+    if (elapsedDays < cooldownDays(document)) {
+      silenced.add(document.id);
+    }
+  }
+
+  return silenced;
 }
 
 const PAGE_SIZE = 500;
@@ -66,13 +116,8 @@ export async function enqueueDueReminders(lookAheadDays: number): Promise<{ crea
     return { created: 0, job_ids: [] };
   }
 
-  const pending = await openJobDocumentIds(
-    admin,
-    due.map((doc) => doc.id),
-  );
-  // The cron runs daily while a document stays expired for weeks, so without this
-  // the same reminder would pile up once per day.
-  const fresh = due.filter((doc) => !pending.has(doc.id));
+  const silenced = await silencedDocumentIds(admin, due);
+  const fresh = due.filter((doc) => !silenced.has(doc.id));
   if (fresh.length === 0) {
     return { created: 0, job_ids: [] };
   }
