@@ -48,14 +48,17 @@ npx supabase db push
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | אותו מקום (מפתח `anon`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | אותו מקום (`service_role`) — סודי, לשרת בלבד |
 | `OPENAI_API_KEY` | platform.openai.com → API keys |
+| `RESEND_API_KEY` | resend.com → API Keys. בלעדיו התזכורות לא נשלחות |
+| `JOBS_WEBHOOK_SECRET` | סוד אקראי ארוך. אימות קריאות לעבודות הרקע |
+| `CRON_SECRET` | Vercel Cron שולח אותו בכותרת `Authorization`. **חייב להיות זהה** ל-`JOBS_WEBHOOK_SECRET`, אחרת ה-cron היומי נדחה ב-401 |
 
 אופציונלי:
 
 | משתנה | לשם מה |
 | --- | --- |
-| `JOBS_WEBHOOK_SECRET` | אימות קריאות לעבודות הרקע |
-| `CRON_SECRET` | Vercel Cron שולח אותו בכותרת `Authorization`. יש להגדיר לאותו ערך כמו `JOBS_WEBHOOK_SECRET` |
-| `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `QSTASH_TOKEN` | תור עבודות של Upstash במקום Cron |
+| `REMINDER_FROM_ADDRESS` | כתובת השולח של התזכורות. ברירת המחדל `ReguShield <noreply@crmit.co.il>` |
+| `QSTASH_TOKEN`, `JOBS_PROCESS_URL` | פיזור התזכורות לעובד חיצוני במקום שליחה מתוך ה-cron |
+| `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY` | אימות חתימה של קריאות מ-QStash |
 | `NEXT_PUBLIC_SITE_URL` | קישורים מוחלטים במיילים ובהזמנות |
 
 ## סדר ההקמה
@@ -79,6 +82,34 @@ npx supabase db push
 - העלאת תמונת מסמך והרצת הסורק (בקשה ארוכה, עד 120 שניות).
 - שני עסקים שונים לא רואים את המסמכים אחד של השני (בדיקת RLS).
 - ב-Vercel → Cron Jobs לוודא ריצה מוצלחת של `/api/jobs/reminders/enqueue`.
+- בדיקה ידנית של התזכורות: `curl -H "Authorization: Bearer $CRON_SECRET"
+  https://<domain>/api/jobs/reminders/enqueue`. התשובה מחזירה `created`
+  (משימות שנוצרו) ו-`drained` (מה נשלח בפועל).
+
+## תזכורות: איך הן נשלחות
+
+ה-cron היומי (`0 5 * * *`) עושה שני דברים בריצה אחת: מאתר מסמכים שפגו או
+עומדים לפוג בתוך 60 יום ויוצר משימה לכל מסמך, ואז **שולח אותן בעצמו** בדוא״ל
+דרך Resend.
+
+עסק עם חמישה מסמכים לא מקבל חמישה מיילים: כל המשימות הפתוחות שלו נתפסות
+בפעולה אחת ונענות במייל אחד. התפיסה הזאת היא גם המנעול — עובד מקבילי שמגיע
+שני לא תופס כלום ויוצא בלי לשלוח כפול.
+
+`QSTASH_TOKEN` + `JOBS_PROCESS_URL` הם תוספת אופציונלית: אם הם מוגדרים, ה-cron
+מפזר את המשימות לעובד חיצוני במקום לשלוח בעצמו. בלעדיהם הכל עובד — אין תלות
+בתשתית חיצונית.
+
+מה שלא נשלח (כשל ספק, למשל) נשאר `pending` ונאסף בריצה הבאה. כתובת חסרה או
+נמען שנדחה מסומנים `cancelled` עם הסיבה ב-`last_error`, כי ניסיון חוזר לא
+ישנה את התוצאה.
+
+## מגבלת גודל של העלאות
+
+העלאת מסמך עוברת ב-Server Action כ-base64, שמוסיף שליש לגודל הקובץ. שתי תקרות
+רלוונטיות: `bodySizeLimit` ב-`next.config.mjs` (מוגדר ל-4MB) ותקרת גוף הבקשה
+של Vercel (4.5MB). לכן הדפדפן מקטין תמונות ל-2200px לפני השליחה
+(`lib/upload/prepare-file.ts`), ו-PDF גדול מ-3MB נדחה עם הסבר בעברית.
 
 ## חובה: שרת SMTP משלכם
 

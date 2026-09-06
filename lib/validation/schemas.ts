@@ -33,7 +33,9 @@ export const securityNotesSchema = z.object({
 });
 export const documentCategorySchema = z.enum(["Fire", "Health", "Municipality"]);
 export const userRoleSchema = z.enum(["business", "partner"]);
-export const reminderChannelSchema = z.enum(["whatsapp"]);
+// Email is what goes out today; WhatsApp needs a business account we do not
+// have yet. Must stay in step with the reminder_channel enum in Postgres.
+export const reminderChannelSchema = z.enum(["email", "whatsapp"]);
 export const reminderJobStatusSchema = z.enum([
   "pending",
   "processing",

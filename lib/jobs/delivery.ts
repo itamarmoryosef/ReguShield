@@ -107,6 +107,17 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// Hebrew inflects the noun and the possessive with the count, so a single
+// template cannot serve both: "1 מסמכים שפג תוקפם" reads as broken Hebrew in
+// the one place the customer is guaranteed to look — the subject line.
+function describeExpired(count: number): string {
+  return count === 1 ? "מסמך אחד שפג תוקפו" : `${count} מסמכים שפג תוקפם`;
+}
+
+function describeUpcoming(count: number): string {
+  return count === 1 ? "מסמך אחד לקראת פקיעה" : `${count} מסמכים לקראת פקיעה`;
+}
+
 /**
  * Builds the reminder as a full HTML document with a table layout.
  *
@@ -121,10 +132,9 @@ export function renderReminderEmail(
   const sender = recipient.brandName || "ReguShield";
   const expired = documents.filter((doc) => doc.status === "expired").length;
 
-  const subject =
-    expired > 0
-      ? `${recipient.businessName}: ${expired} מסמכים שפג תוקפם`
-      : `${recipient.businessName}: ${documents.length} מסמכים לקראת פקיעה`;
+  const subject = `${recipient.businessName}: ${
+    expired > 0 ? describeExpired(expired) : describeUpcoming(documents.length)
+  }`;
 
   const rows = documents
     .map((doc) => {

@@ -33,6 +33,14 @@ const nextConfig = {
     ],
   },
   experimental: {
+    serverActions: {
+      // Document uploads travel through a server action as base64, which adds
+      // a third to the file size. The default 1 MB rejects an ordinary phone
+      // photo, and Vercel refuses any request body over 4.5 MB, so this sits
+      // between the two. The browser downscales images to stay under it — see
+      // lib/upload/prepare-file.ts.
+      bodySizeLimit: "4mb",
+    },
     // The PDF generator reads the Hebrew TTFs and the official form templates
     // from disk at runtime, so they must ship with the serverless bundle.
     outputFileTracingIncludes: {

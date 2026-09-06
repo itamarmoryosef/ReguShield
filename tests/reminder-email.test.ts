@@ -34,14 +34,28 @@ describe("renderReminderEmail", () => {
     expect(html).toContain("<table");
   });
 
-  it("names the business and counts the documents in the subject", () => {
+  it("names the business in the subject", () => {
     expect(renderReminderEmail(recipient, [expired]).subject).toContain("מסעדת הגן");
-    expect(renderReminderEmail(recipient, [expired, soon]).subject).toContain("1");
   });
 
   it("leads with expiry when something has already lapsed", () => {
-    expect(renderReminderEmail(recipient, [expired]).subject).toContain("פג תוקפם");
+    expect(renderReminderEmail(recipient, [expired, soon]).subject).toContain("פג תוקפו");
     expect(renderReminderEmail(recipient, [soon]).subject).toContain("פקיעה");
+  });
+
+  // "1 מסמכים שפג תוקפם" is broken Hebrew, and the subject line is the one
+  // part of the message every recipient reads.
+  it("inflects the subject for a single document", () => {
+    expect(renderReminderEmail(recipient, [expired]).subject).toContain("מסמך אחד שפג תוקפו");
+    expect(renderReminderEmail(recipient, [soon]).subject).toContain("מסמך אחד לקראת פקיעה");
+  });
+
+  it("counts the documents when there is more than one", () => {
+    const two = renderReminderEmail(recipient, [expired, { ...expired, templateName: "רישיון" }]);
+    expect(two.subject).toContain("2 מסמכים שפג תוקפם");
+    expect(renderReminderEmail(recipient, [soon, { ...soon, templateName: "אחר" }]).subject).toContain(
+      "2 מסמכים לקראת פקיעה",
+    );
   });
 
   it("lists every document in both the HTML and the plain text part", () => {

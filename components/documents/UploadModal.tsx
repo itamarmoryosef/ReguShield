@@ -6,6 +6,7 @@ import { saveScannedDocument } from "@/app/actions/documents";
 import { scanDocument } from "@/app/actions/scan-document";
 import { toUserMessage } from "@/lib/errors";
 import type { DashboardDocument, ScanDocumentResult } from "@/lib/types";
+import { prepareUpload } from "@/lib/upload/prepare-file";
 import { scanDocumentInputSchema } from "@/lib/validation/schemas";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -36,22 +37,22 @@ export function UploadModal({ open, item, businessId, onClose }: UploadModalProp
     setBusy(true);
 
     try {
-      const base64 = await fileToBase64(file);
-      setPreview(file.type.startsWith("image/") ? base64 : null);
+      const prepared = await prepareUpload(file);
+      setPreview(prepared.isImage ? prepared.dataUrl : null);
 
       const payload = scanDocumentInputSchema.parse({
-        imageBase64: base64,
-        mimeType: file.type || "image/jpeg",
-        fileName: file.name,
+        imageBase64: prepared.dataUrl,
+        mimeType: prepared.mimeType,
+        fileName: prepared.fileName,
       });
       const scan = await scanDocument(payload);
       setResult(scan);
 
       await saveScannedDocument({
         businessId,
-        fileBase64: base64,
-        fileName: file.name,
-        mimeType: file.type || "image/jpeg",
+        fileBase64: prepared.dataUrl,
+        fileName: prepared.fileName,
+        mimeType: prepared.mimeType,
         scan,
         fallbackTemplateId: currentItem.id,
       });
@@ -155,13 +156,4 @@ export function UploadModal({ open, item, businessId, onClose }: UploadModalProp
       ) : null}
     </Modal>
   );
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("קריאת הקובץ נכשלה"));
-    reader.readAsDataURL(file);
-  });
 }
