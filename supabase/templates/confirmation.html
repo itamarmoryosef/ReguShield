@@ -1,34 +1,65 @@
-<div dir="rtl" style="margin:0;padding:24px;background-color:#f9fafb;font-family:Arial,Helvetica,sans-serif">
-  <div style="max-width:520px;margin:0 auto;background-color:#ffffff;border:1px solid #e5e7eb;border-radius:16px;padding:32px">
-    <div style="font-size:15px;font-weight:bold;color:#111827;padding-bottom:20px;border-bottom:1px solid #f3f4f6">
-      ReguShield
-    </div>
-
-    <h1 style="margin:24px 0 0;font-size:20px;font-weight:bold;color:#111827">אימות כתובת הדוא״ל</h1>
-
-    <p style="margin:12px 0 0;font-size:15px;line-height:1.7;color:#374151">
-      תודה שנרשמתם. נשאר צעד אחד: אימות הכתובת, ואפשר להתחיל לנהל את הרישוי של העסק.
-    </p>
-
-    <div style="margin:28px 0">
-      <a
-        href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=signup"
-        style="display:inline-block;background-color:#4f46e5;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;padding:13px 28px;border-radius:10px"
-      >
-        אימות החשבון
-      </a>
-    </div>
-
-    <p style="margin:0;font-size:13px;line-height:1.7;color:#6b7280">
-      הקישור תקף לשעה אחת ולשימוש אחד בלבד.
-    </p>
-
-    <p style="margin:16px 0 0;font-size:13px;line-height:1.7;color:#6b7280">
-      אם לא נרשמתם ל-ReguShield, אפשר להתעלם מההודעה הזו.
-    </p>
-
-    <p style="margin:24px 0 0;padding-top:20px;border-top:1px solid #f3f4f6;font-size:12px;color:#9ca3af">
-      נשלח אליכם מ-ReguShield, ניהול רגולציה ורישוי עסקים.
-    </p>
-  </div>
-</div>
+<!doctype html>
+<html dir="rtl" lang="he">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>אימות כתובת הדוא״ל ב-ReguShield</title>
+  </head>
+  <body style="margin:0;padding:0;background-color:#f4f4f5">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5">
+      <tr>
+        <td align="center" style="padding:24px 12px">
+          <table role="presentation" width="520" cellpadding="0" cellspacing="0" border="0" style="width:520px;max-width:100%;background-color:#ffffff;border:1px solid #e4e4e7;border-radius:12px">
+            <tr>
+              <td dir="rtl" align="right" style="padding:28px 28px 8px 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#18181b">
+                ReguShield
+              </td>
+            </tr>
+            <tr>
+              <td dir="rtl" align="right" style="padding:0 28px;font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:bold;color:#18181b">
+                אימות כתובת הדוא״ל
+              </td>
+            </tr>
+            <tr>
+              <td dir="rtl" align="right" style="padding:12px 28px 0 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:24px;color:#3f3f46">
+                תודה שנרשמתם. נשאר צעד אחד: אימות הכתובת, ואפשר להתחיל לנהל את הרישוי של העסק.
+              </td>
+            </tr>
+            <tr>
+              <td dir="rtl" align="right" style="padding:24px 28px">
+                <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=signup" style="background-color:#4f46e5;border-radius:8px;color:#ffffff;display:inline-block;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;padding:13px 28px;text-decoration:none">
+                  אימות החשבון
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td dir="rtl" align="right" style="padding:0 28px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:21px;color:#71717a">
+                אם הכפתור לא נפתח, העתיקו את הכתובת הזאת לדפדפן:
+              </td>
+            </tr>
+            <tr>
+              <td dir="ltr" align="left" style="padding:6px 28px 0 28px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#4f46e5;word-break:break-all">
+                {{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=signup
+              </td>
+            </tr>
+            <tr>
+              <td dir="rtl" align="right" style="padding:20px 28px 0 28px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:21px;color:#71717a">
+                הקישור תקף לשעה אחת ולשימוש אחד בלבד.
+              </td>
+            </tr>
+            <tr>
+              <td dir="rtl" align="right" style="padding:12px 28px 0 28px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:21px;color:#71717a">
+                אם לא נרשמתם ל-ReguShield, אפשר להתעלם מההודעה הזו.
+              </td>
+            </tr>
+            <tr>
+              <td dir="rtl" align="right" style="padding:20px 28px 28px 28px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#a1a1aa;border-top:1px solid #f4f4f5">
+                נשלח אל {{ .Email }} מ-ReguShield, ניהול רגולציה ורישוי עסקים.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
