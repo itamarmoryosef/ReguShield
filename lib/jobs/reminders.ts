@@ -1,8 +1,8 @@
 import { AppError } from "@/lib/errors";
 import {
   categoryLabel,
+  deliverReminder,
   loadReminderRecipient,
-  sendReminderEmail,
   UndeliverableError,
   type ReminderDocument,
 } from "@/lib/jobs/delivery";
@@ -216,17 +216,17 @@ export async function processReminderJob(jobId: string): Promise<{ status: strin
       return { status: "cancelled" };
     }
 
-    const delivery = await sendReminderEmail(recipient, documents);
+    const delivery = await deliverReminder(recipient, documents);
 
     await admin
       .from("reminder_jobs")
       .update({
         status: "sent",
-        channel: "email",
+        channel: delivery.channel,
         last_error: null,
         attempt_count: 1,
         payload: {
-          delivery: "email",
+          delivery: delivery.channel,
           to: delivery.to,
           provider_message_id: delivery.providerId,
           documents: documents.length,

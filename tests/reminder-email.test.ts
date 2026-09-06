@@ -3,6 +3,7 @@ import { renderReminderEmail, type ReminderDocument, type ReminderRecipient } fr
 
 const recipient: ReminderRecipient = {
   email: "owner@example.co.il",
+  whatsAppNumber: null,
   businessName: "מסעדת הגן",
   ownerName: "דנה לוי",
   brandName: null,

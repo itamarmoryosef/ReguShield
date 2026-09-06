@@ -1,6 +1,8 @@
 import { CATEGORY_LABELS } from "@/lib/constants";
 import { reminderFromAddress, siteUrl } from "@/lib/env";
 import { AppError } from "@/lib/errors";
+import { pickWhatsAppNumber } from "@/lib/jobs/channels/phone";
+import { isWhatsAppConfigured, sendWhatsAppReminder } from "@/lib/jobs/channels/whatsapp";
 import type { createServiceClient } from "@/lib/supabase/admin";
 
 export type ReminderDocument = {
@@ -11,7 +13,10 @@ export type ReminderDocument = {
 };
 
 export type ReminderRecipient = {
+  /** Empty when the business has no reachable address; a phone may still work. */
   email: string;
+  /** E.164 mobile, when one could be trusted. See channels/phone.ts. */
+  whatsAppNumber: string | null;
   businessName: string;
   ownerName: string | null;
   /** Partner branding, when the client came through an agency. */
@@ -38,7 +43,7 @@ export async function loadReminderRecipient(
 ): Promise<ReminderRecipient> {
   const { data: business, error } = await admin
     .from("businesses")
-    .select("id, name, email, owner_name, user_id, partner_id")
+    .select("id, name, email, owner_name, phone, mobile, user_id, partner_id")
     .eq("id", businessId)
     .maybeSingle();
 
@@ -54,8 +59,10 @@ export async function loadReminderRecipient(
     email = account?.user?.email ?? "";
   }
 
-  if (!email) {
-    throw new UndeliverableError("אין כתובת דוא״ל לעסק");
+  const whatsAppNumber = pickWhatsAppNumber([business.mobile, business.phone]);
+
+  if (!email && !whatsAppNumber) {
+    throw new UndeliverableError("אין כתובת דוא״ל או מספר נייד לעסק");
   }
 
   let brandName: string | null = null;
@@ -75,6 +82,7 @@ export async function loadReminderRecipient(
 
   return {
     email,
+    whatsAppNumber,
     businessName: business.name,
     ownerName: business.owner_name ?? null,
     brandName,
@@ -285,4 +293,45 @@ export async function sendReminderEmail(
 export function categoryLabel(category: string | null | undefined): string | null {
   if (!category) return null;
   return CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS] ?? category;
+}
+
+export type DeliveryResult = {
+  channel: "email" | "whatsapp";
+  to: string;
+  providerId: string;
+};
+
+/**
+ * Sends the reminder over the best channel available, and says which it used.
+ *
+ * WhatsApp is preferred when it is switched on and the business has a mobile,
+ * because a message on the phone is read and an email often is not. It stays
+ * off until a Meta business account is approved, which is why email must
+ * remain a complete channel rather than a placeholder.
+ *
+ * A WhatsApp failure falls through to email: losing the reminder entirely is
+ * worse than delivering it somewhere less convenient. An `UndeliverableError`
+ * does not fall through, since it means no channel can reach this business.
+ */
+export async function deliverReminder(
+  recipient: ReminderRecipient,
+  documents: ReminderDocument[],
+): Promise<DeliveryResult> {
+  if (isWhatsAppConfigured() && recipient.whatsAppNumber) {
+    try {
+      const sent = await sendWhatsAppReminder(recipient.whatsAppNumber, recipient, documents);
+      return { channel: "whatsapp", to: sent.to, providerId: sent.providerId };
+    } catch (error) {
+      if (!recipient.email) throw error;
+      // Swallowed on purpose: the job row records the channel that worked, and
+      // the email attempt below reports its own failure if it also fails.
+    }
+  }
+
+  if (!recipient.email) {
+    throw new UndeliverableError("אין כתובת דוא״ל לעסק");
+  }
+
+  const sent = await sendReminderEmail(recipient, documents);
+  return { channel: "email", to: sent.to, providerId: sent.providerId };
 }
