@@ -1145,7 +1145,11 @@ values (
   'partner-logos',
   true,
   2097152,
-  array['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
+  -- No SVG. The bucket is public, and an SVG can carry script and markup, so
+  -- accepting one would let a partner host an active page on our storage
+  -- domain — a ready-made phishing base aimed at the business owners they
+  -- brand. A logo loses nothing by being a raster image.
+  array['image/jpeg', 'image/png', 'image/webp']
 )
 on conflict (id) do update
   set public = true,
