@@ -42,6 +42,7 @@ export function UploadModal({ open, item, businessId, onClose }: UploadModalProp
       const payload = scanDocumentInputSchema.parse({
         imageBase64: base64,
         mimeType: file.type || "image/jpeg",
+        fileName: file.name,
       });
       const scan = await scanDocument(payload);
       setResult(scan);

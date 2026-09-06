@@ -18,6 +18,20 @@ export function isJobsAuthConfigured(): boolean {
  * Absolute origin for links that leave the app, such as the address Supabase
  * sends people back to from a verification email.
  */
+/** Reminders can only go out once a transactional sender is configured. */
+export function isEmailConfigured(): boolean {
+  return Boolean(process.env.RESEND_API_KEY);
+}
+
+/**
+ * Sender for reminder mail. Must stay on a domain verified at Resend —
+ * an unverified domain is refused for every recipient except the account
+ * owner, which looks fine in a self-test and fails for every real customer.
+ */
+export function reminderFromAddress(): string {
+  return process.env.REMINDER_FROM_ADDRESS || "ReguShield <noreply@crmit.co.il>";
+}
+
 export function siteUrl(): string {
   const configured = process.env.NEXT_PUBLIC_SITE_URL;
   if (configured) return configured.replace(/\/$/, "");

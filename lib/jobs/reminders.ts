@@ -1,4 +1,11 @@
 import { AppError } from "@/lib/errors";
+import {
+  categoryLabel,
+  loadReminderRecipient,
+  sendReminderEmail,
+  UndeliverableError,
+  type ReminderDocument,
+} from "@/lib/jobs/delivery";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { dueDocumentSchema, reminderJobRowSchema, uuidSchema } from "@/lib/validation/schemas";
 import type { z } from "zod";
@@ -74,7 +81,7 @@ export async function enqueueDueReminders(lookAheadDays: number): Promise<{ crea
     business_id: doc.business_id,
     template_id: doc.template_id,
     document_id: doc.id,
-    channel: "whatsapp" as const,
+    channel: "email" as const,
     status: "pending" as const,
     scheduled_for: new Date().toISOString(),
     payload: {
@@ -100,16 +107,25 @@ export async function enqueueDueReminders(lookAheadDays: number): Promise<{ crea
   return { created: jobIds.length, job_ids: jobIds };
 }
 
-export async function processReminderJob(jobId: string): Promise<{ status: string }> {
+/**
+ * Sends every outstanding reminder for the business this job belongs to.
+ *
+ * The queue holds one row per document, but a business with five expiring
+ * permits does not want five emails. The whole outstanding batch is claimed in
+ * a single statement and answered with one message: that also makes the claim
+ * the concurrency guard, since a parallel worker that arrives second claims
+ * nothing and exits instead of sending a duplicate.
+ */
+export async function processReminderJob(jobId: string): Promise<{ status: string; sent?: number }> {
   const admin = createServiceClient();
   const { data: job, error } = await admin
     .from("reminder_jobs")
-    .select("id, status, attempt_count, max_attempts, payload")
+    .select("id, business_id, status, attempt_count, max_attempts, payload")
     .eq("id", jobId)
     .maybeSingle();
 
   const parsedJob = reminderJobRowSchema.safeParse(job);
-  if (error || !parsedJob.success) {
+  if (error || !parsedJob.success || !job?.business_id) {
     throw new AppError("משימת התזכורת לא נמצאה", { code: "JOB_NOT_FOUND", status: 404 });
   }
 
@@ -117,38 +133,159 @@ export async function processReminderJob(jobId: string): Promise<{ status: strin
     return { status: parsedJob.data.status };
   }
 
-  const { error: claimError } = await admin
+  const businessId = job.business_id as string;
+
+  const { data: claimedRows, error: claimError } = await admin
     .from("reminder_jobs")
-    .update({
-      status: "processing",
-      attempt_count: parsedJob.data.attempt_count + 1,
-    })
-    .eq("id", jobId)
-    .in("status", ["pending", "failed"]);
+    .update({ status: "processing" })
+    .eq("business_id", businessId)
+    .in("status", ["pending", "failed"])
+    .select("id, template_id, document_id, attempt_count, max_attempts, payload");
 
   if (claimError) {
     throw new AppError("תפיסת המשימה נכשלה", { code: "JOB_CLAIM_FAILED", status: 500 });
   }
 
+  const claimed = claimedRows ?? [];
+  if (claimed.length === 0) {
+    // Another worker got there first and is sending, or already sent.
+    return { status: "skipped" };
+  }
+
+  const ids = claimed.map((row) => row.id as string);
+
+  // Attempts are counted per row so a repeatedly failing business eventually
+  // stops instead of being retried forever.
+  const exhausted = claimed.filter(
+    (row) => Number(row.attempt_count ?? 0) + 1 >= Number(row.max_attempts ?? 5),
+  );
+
   try {
-    await deliverWhatsAppReminder(jobId);
+    const [recipient, documents] = await Promise.all([
+      loadReminderRecipient(admin, businessId),
+      loadReminderDocuments(admin, claimed),
+    ]);
+
+    if (documents.length === 0) {
+      await closeJobs(admin, ids, "cancelled", "אין מסמכים לתזכורת");
+      return { status: "cancelled" };
+    }
+
+    const delivery = await sendReminderEmail(recipient, documents);
+
     await admin
       .from("reminder_jobs")
       .update({
         status: "sent",
+        channel: "email",
         last_error: null,
-        payload: { ...parsedJob.data.payload, delivery: "stubbed" },
+        attempt_count: 1,
+        payload: {
+          delivery: "email",
+          to: delivery.to,
+          provider_message_id: delivery.providerId,
+          documents: documents.length,
+          sent_at: new Date().toISOString(),
+        },
       })
-      .eq("id", jobId);
-    return { status: "sent" };
+      .in("id", ids);
+
+    return { status: "sent", sent: documents.length };
   } catch (error) {
     const message = error instanceof Error ? error.message : "שליחה נכשלה";
-    await admin
-      .from("reminder_jobs")
-      .update({ status: "failed", last_error: message })
-      .eq("id", jobId);
+
+    // Nothing about a missing address improves by trying again tomorrow.
+    const terminal = error instanceof UndeliverableError || exhausted.length === claimed.length;
+    await closeJobs(admin, ids, terminal ? "cancelled" : "failed", message);
+
+    if (terminal) {
+      return { status: "cancelled" };
+    }
     throw new AppError(message, { code: "DELIVERY_FAILED", status: 500 });
   }
+}
+
+async function closeJobs(
+  admin: ReturnType<typeof createServiceClient>,
+  ids: string[],
+  status: "failed" | "cancelled",
+  message: string,
+): Promise<void> {
+  await admin.from("reminder_jobs").update({ status, last_error: message }).in("id", ids);
+}
+
+/** Turns claimed queue rows into the lines the customer will read. */
+async function loadReminderDocuments(
+  admin: ReturnType<typeof createServiceClient>,
+  claimed: Array<Record<string, unknown>>,
+): Promise<ReminderDocument[]> {
+  const documentIds = claimed
+    .map((row) => row.document_id)
+    .filter((id): id is string => typeof id === "string");
+
+  if (documentIds.length === 0) return [];
+
+  const { data } = await admin
+    .from("client_documents")
+    .select("id, expiry_date, status, document_templates (name, category)")
+    .in("id", documentIds);
+
+  return (data ?? [])
+    .map((row) => {
+      const template = row.document_templates as { name?: string; category?: string } | null;
+      return {
+        templateName: template?.name ?? "מסמך",
+        category: categoryLabel(template?.category),
+        expiryDate: (row.expiry_date as string | null) ?? null,
+        status: (row.status as string) ?? "expiring_soon",
+      };
+    })
+    .sort((a, b) => (a.status === "expired" && b.status !== "expired" ? -1 : 0));
+}
+
+/**
+ * Sends whatever is waiting, newest deadlines first, until the time budget runs out.
+ *
+ * This is what makes the daily cron self-sufficient: QStash is an accelerator
+ * when it is configured, not a requirement for anything to be delivered.
+ */
+export async function drainPendingReminders(
+  budgetMs: number,
+): Promise<{ businesses: number; sent: number; failed: number }> {
+  const admin = createServiceClient();
+  const startedAt = Date.now();
+  const handled = new Set<string>();
+  let sent = 0;
+  let failed = 0;
+
+  while (Date.now() - startedAt < budgetMs) {
+    const { data, error } = await admin
+      .from("reminder_jobs")
+      .select("id, business_id")
+      .in("status", ["pending", "failed"])
+      .lte("scheduled_for", new Date().toISOString())
+      .order("scheduled_for", { ascending: true })
+      .limit(200);
+
+    if (error) break;
+
+    const next = (data ?? []).find(
+      (row) => typeof row.business_id === "string" && !handled.has(row.business_id),
+    );
+    if (!next) break;
+
+    handled.add(next.business_id as string);
+
+    try {
+      const result = await processReminderJob(next.id as string);
+      if (result.status === "sent") sent += 1;
+    } catch {
+      // The job row already carries the reason; one bad tenant must not stop the run.
+      failed += 1;
+    }
+  }
+
+  return { businesses: handled.size, sent, failed };
 }
 
 export async function retryReminderJob(jobId: string, reason?: string): Promise<{ status: string }> {
@@ -184,10 +321,3 @@ export async function retryReminderJob(jobId: string, reason?: string): Promise<
   return processReminderJob(jobId);
 }
 
-async function deliverWhatsAppReminder(jobId: string): Promise<void> {
-  // Intentionally short: WhatsApp Cloud API / Twilio is wired by the external worker later.
-  // Returning quickly keeps this route compatible with QStash/Trigger.dev retries.
-  if (!jobId) {
-    throw new AppError("מזהה משימה חסר", { code: "MISSING_JOB" });
-  }
-}

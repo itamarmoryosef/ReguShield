@@ -380,6 +380,8 @@ export const scanDocumentInputSchema = z
     imageBase64: z.string().min(1).optional(),
     fileUrl: z.string().url("קישור הקובץ אינו תקין").optional(),
     mimeType: z.string().min(1).optional(),
+    // Passed to the model as a type hint when the upload is a PDF.
+    fileName: z.string().min(1).max(255).optional(),
   })
   .refine((value) => Boolean(value.imageBase64 || value.fileUrl), {
     message: "יש לספק קובץ (base64) או קישור לקובץ",
@@ -485,8 +487,10 @@ export const replaceDocumentResultSchema = z.object({
   previous_file_path: z.string().nullable(),
 });
 
+// Vercel Cron sends a GET with no body, so nothing here may be required: the
+// webhook handler mints an event id when the payload omits one.
 export const reminderEnqueuePayloadSchema = z.object({
-  event_id: z.string().min(1),
+  event_id: z.string().min(1).optional(),
   look_ahead_days: z.number().int().min(1).max(90).optional().default(60),
   scheduled_for: z.string().datetime().optional(),
 });
